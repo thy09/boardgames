@@ -7,7 +7,11 @@
 </head>
 <body>
     <div style="display:none"><img src='./static/sushigo_logo.jpg'></img></div>
-    <div>请选择自己的编号坐下!</div>
+    <div>这一局的题板为:</div>
+    <div class="tiles">
+        <div style="clear:both"></div>
+    </div>
+    <div class="sit">请选择自己的编号坐下!</div>
     <div class="players"></div>
     <div class="btn" onclick = "window.location.reload()">刷新页面</div>
     <div class="btn" onclick = new_game()>新建游戏</div>
@@ -21,5 +25,5 @@
 <script src="./static/zepto.js"></script>
 <script src="./static/base.js"></script> 
 <script type="text/javascript" src="./static/socket.io.min.js"></script>
-<script src="./static/sushigo.js?v=20171026v0"></script>
+<script src="./static/sushigo.js?v=20171027v0"></script>
 </html>

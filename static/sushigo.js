@@ -32,10 +32,16 @@ var show_foods = function(game, idx){
     var divs = [];
     for (var i in game.player_cards[idx]){
         var card = game.player_cards[idx][i];
-        var card_div = $("<div></div>").addClass("btn action").text(card_name(card));
+        var card_div = $("<div></div>").addClass("action food").attr("name", card_name(card));
+        var name = card.name;
+        if (card.sub_name){
+            name = card.sub_name;
+        }
+        var img = $("<img></img>").attr("src","/static/sushigo/cards/"+name+".png");
+        card_div.append(img);
         (function(idx, div){
             div.click(function(){
-                if (!confirm("确定选择 "+div.text()+" 吗?")){
+                if (!confirm("确定选择 "+div.attr("name")+" 吗?")){
                     return;
                 }
                 var data = {
@@ -47,17 +53,21 @@ var show_foods = function(game, idx){
                 sock.emit("action", {"args": data});
             })
         })(i, card_div);
+        card_div.append($("<p></p>").text(card_name(card)));
         divs.push(card_div);
     }
-    divs.sort(function(v1,v2){return v1.text() < v2.text();});
+    divs.sort(function(v1,v2){return v1.attr("name") < v2.attr("name");});
     for (var i in divs){
         cards.append(divs[i]);
     }
+    cards.append($("<div style='clear:both'></div>"));
     $(".players").append(cards);
+    $("")
 }
 var get_my_role = function(game, idx){
     var players = game.players;
     $(".players").html("");
+    $(".sit").addClass("hidden");
     var score = 0;
     for (var i=1;i<game.round;i++){
         score += game.score[i][game.my_idx];
@@ -149,6 +159,16 @@ var do_actions = function(msg){
         //get_my_role(game, game.my_idx);
     }
 }
+var update_tiles = function(tiles){
+    console.log(tiles);
+    for (var i in tiles){
+        var tile = tiles[i];
+        var tile_div = $("<div class='tile'></div>");
+        tile_div.append($("<img></img>").attr("src", "/static/sushigo/tiles/"+tile+".png"));
+        $(".tiles").prepend(tile_div);
+        console.log(tile_div);
+    }
+}
 $(document).ready(function(){
     $(".rules").html(rules);
     sock = io.connect("http://" + document.domain + ":" + location.port + "/sock");
@@ -156,6 +176,7 @@ $(document).ready(function(){
         game = data.game;
         game.my_idx = data.my_idx;
         console.log(data);
+        update_tiles(game.cards_type);
         for (var i in game.player_cards){
             for (var j in game.player_cards[i]){
                 id2card[game.player_cards[i][j].id] = game.player_cards[i][j];

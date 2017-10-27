@@ -55,3 +55,12 @@ p{
     font-size: 14px; 
     color: #777;
 }
+.food,
+.tile{
+    float: left;
+    width: 24%;
+}
+.food img,
+.tile img{
+    width: 90%;
+}
