@@ -5,14 +5,36 @@
 
 from flask import Flask, render_template, redirect, request, url_for, jsonify
 from flask import g
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
+
 import game_manager
+
 import datetime
 import os
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = 'thyplayboardgame'
-
+sockio = SocketIO(app)
 manager = game_manager.GameManager()
+
+@sockio.on("connect", namespace = "/sock")
+def connect():
+    pass
+@sockio.on("join", namespace="/sock")
+def join(msg):
+    roomid = str(msg["id"])
+    join_room(roomid)
+
+@sockio.on("action", namespace = "/sock")
+def sockio_action(msg):
+    args = msg["args"]
+    id = args.get("id", 0)
+    game = manager.game(id)
+    if not game:
+        return
+    result = manager.do_action_sockio(game, args)
+    if result is not None:
+        emit("action", {"data": result}, room = str(game["id"]))
 
 @app.before_request
 def before_request():
@@ -36,27 +58,28 @@ def index():
 @app.route("/create")
 def create():
     count = int(request.args.get("count", 8))
-    if count<3:
+    if count<2:
         return "INVALID_PLAYER_COUNT"
     args = {}
     for k in request.args.keys():
         args[k] = request.args[k]
     game_type = request.args.get("type", "werewords")
     id = manager.create(game_type, args)
-    return redirect(url_for(".play", id = id))
+    game = manager.game(id)
+    return redirect(url_for(".play", id = id, type = game["type"].lower()))
 
 @app.route("/play")
 def play():
     id = request.args.get("id", 0)
     game = manager.game(id)
     if game is None:
-        return redirect(url_for(".create"))
+        return redirect(url_for(".create", type = request.args.get("type", "werewords")))
     return render_template(game["tpl"], game = game)
 
 @app.route("/status")
 def status():
     id = request.args.get("id", 0)
-    game = manager.game(id)
+    game = manager.game_info(id)
     if not game:
         return jsonify({"status":"INVALID_ID"})
     data = {"game":game, "status":"success"}
@@ -96,4 +119,5 @@ def show_users():
 
 if __name__ == "__main__":
     app.debug = True
-    app.run(host = "0.0.0.0", port = 29999)
+    sockio.run(app, port = 29999)
+    #app.run(host = "0.0.0.0", port = 29999)

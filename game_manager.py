@@ -7,9 +7,11 @@ import datetime
 import random
 
 import werewords
+import sushigo
 
 ALL_GAMES = {
-        "werewords":werewords.WereWords
+        "werewords":werewords.WereWords,
+        "sushigoparty": sushigo.SushiGoParty,
         }
 
 
@@ -61,11 +63,19 @@ class GameManager:
 
     def game(self, id):
         return self.games.get(str(id))
+    def game_info(self, id):
+        game = self.game(id)
+        if not game:
+            return None
+        game_class = self.generators[game["type"].lower()]
+        if hasattr(game_class, "game_info"):
+            return game_class.game_info(game)
+        return game
 
     def create(self, game_type, args):
         if not game_type in self.generators:
             if not game_type in ALL_GAMES:
-                return None
+                game_type = random.choice(ALL_GAMES.keys())
             self.generators[game_type] = (ALL_GAMES[game_type])()
         game = self.generators[game_type].create(args)
         if "count" in game:
@@ -78,21 +88,35 @@ class GameManager:
         game_class = self.generators[game["type"].lower()]
         return game_class.do_action(game, data)
 
+    def do_action_sockio(self, game, data):
+        game_class = self.generators[game["type"].lower()]
+        if hasattr(game_class, "do_action_sockio"):
+            return game_class.do_action_sockio(game, data)
+
+    def print_item(self, item, depth = 0):
+        if isinstance(item, list) and depth<3:
+            print depth*"-", "List Len=", len(item)
+            for x in item:
+                self.print_item(x, depth+1)
+        elif isinstance(item, dict) and depth<3:
+            for k,v in item.items():
+                print depth*"-", k
+                self.print_item(v, depth+1)
+        else:
+            print depth*"-", item
+
     def print_game(self, id):
         game = self.game(id)
         if not game:
             print "%s is invalid!" % id
             return
-        for k,v in game.items():
-            if isinstance(v,list):
-                v = ",".join(map(unicode,v))
-            print k, v
-        print ""
+        print "\nStart to Print Game"
+        self.print_item(game)
 
 if __name__ == "__main__":
     manager = GameManager()
     for i in range(3):
-        id = manager.create("werewords", {})
+        id = manager.create("sushigoparty", {})
         manager.print_game(id)
         manager.print_game(i)
 
