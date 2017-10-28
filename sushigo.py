@@ -4,22 +4,25 @@
 # Created By: Heyi Tang
 
 import random
+import copy
 from collections import defaultdict
 
 ALL_TYPES = {
         "Nigiri":["nigiri"],
-        "Maki":["maki",
-            #"uramaki",
+        "Maki":[
+            "maki",
+            "uramaki",
             "temaki",
             ],
-        "Appetizers":["tempura", "sashimi", "dumpling",
+        "Appetizers":[
+            "tempura", "sashimi", "dumpling",
             "eel", "tofu",
-            #"onigiri", "edamame",
+            "onigiri", "edamame",
             "miso soup",
             ],
         "Special": ["soy sauce", "tea"],
         "Dessert": [
-#            "puding",
+            "pudding",
             "green tea ice cream",
             "fruit",
             ],
@@ -51,6 +54,7 @@ class CardsGenerator:
                 "uramaki": self.gen_uramaki,
                 "nigiri": self.gen_nigiri,
                 "fruit": self.gen_fruit,
+                "onigiri": self.gen_onigiri,
                 }
 
     def gen_cards(self, name):
@@ -74,6 +78,12 @@ class CardsGenerator:
                 result.append({"type": "Nigiri", "name":name, "sub_name":"%s %s"%(subname, name)})
                 id += 1
         return result
+
+    def gen_onigiri(self, name):
+        cards = self.gen_normal_cards(name)
+        for i, card in enumerate(cards):
+            card["shape"] = i/3
+        return cards
 
     def gen_maki(self, name):
         maki = self.gen_normal_cards(name)
@@ -107,8 +117,10 @@ class SushiGoParty:
                 "onigiri": self.score_onigiri,
                 "edamame": self.score_edamame,
                 "temaki": self.score_maki,
+                "uramaki": self.score_uramaki,
                 "maki": self.score_maki,
                 }
+        self.cards_types = {}
 
     def create(self, args):
         game = {"type": "SushiGoParty", "tpl":"sushigo.html"}
@@ -167,14 +179,15 @@ class SushiGoParty:
         types = []
         for t, needed in type_needed.items():
             types += random.sample(ALL_TYPES[t], needed)
-        return "#".join(types)
+        return "-".join(types)
 
     def parse_cards_type(self, cards_type):
         if cards_type == "random":
             cards_type = self.random_type()
         elif cards_type in self.cards_types:
             cards_type = self.cards_types
-        types = cards_type.split("#")
+        types = cards_type.split("-")
+        print types, len(types)
         if len(types) != 8:
             return self.parse_cards_type("random")
         return types
@@ -248,6 +261,20 @@ class SushiGoParty:
             return result
     def compute_dessert(self, game):
         game["dessert_score"] = []
+        if "pudding" in game["cards_type"]:
+            puddings = []
+            for player_d in game["total_desserts"]:
+                puddings.append(player_d.get("pudding", 0))
+            puddings.sort(reverse = True)
+            for player in range(game["count"]):
+                my_pudding = game["total_desserts"][player].get("pudding", 0)
+                result = 0
+                if my_pudding == puddings[0]:
+                    result = 6
+                elif my_pudding == puddings[-1] and game["count"] > 2:
+                    result = -6
+                game["dessert_score"].append(result)
+            return
         for player in range(game["count"]):
             score = 0
             for k,v in game["total_desserts"][player].items():
@@ -273,7 +300,48 @@ class SushiGoParty:
         return val * max(type_count.values())
 
     def score_onigiri(self, key, val, idx, chosen):
-        return 0
+        ch = chosen[idx]
+        counts = [0] * 4
+        for food in ch:
+            if key == food["name"]:
+                counts[food["shape"]] += 1
+        counts.sort()
+        now = 0
+        total = 0
+        vals = [16, 9, 4, 1]
+        for i, count in enumerate(counts):
+            if count > now:
+                total += (count - now) * vals[i]
+                now = count
+        return total
+
+    def score_uramaki(self, key, val, idx, chosen):
+        if val < 10:
+            return 0
+        scores = [8, 5, 2]
+        makies = [0] * len(chosen)
+        total = 0
+        for i in range(len(chosen[0])):
+            if len(scores) == 0:
+                break
+            for j in range(len(chosen)):
+                if chosen[j][i]["name"] == key:
+                    makies[j] += chosen[j][i]["count"]
+            sort_makies = filter(lambda v:v>=10, makies)
+            sort_makies.sort(reverse = True)
+            added = False
+            for v in sort_makies:
+                if not added and makies[idx] == v:
+                    added = True
+                    total += scores[0]
+                scores = scores[1:]
+                if len(scores) == 0:
+                    break
+            for i in range(len(makies)):
+                if makies[i] >= 10:
+                    makies[i] = 0
+        return total
+
     def score_maki(self, key, val, idx, chosen):
         user_makis = [0] * len(chosen)
         totals = []
@@ -299,8 +367,15 @@ class SushiGoParty:
             if val == totals[-1] and len(chosen)>2:
                 return -4
         return 0
+
     def score_edamame(self, key, val, idx, chosen):
-        return 0
+        enemies = -1
+        for foods in chosen:
+            for food in foods:
+                if food["name"] == key:
+                    enemies += 1
+                    break
+        return val * enemies
 
     def next_round(self, game):
         game["turn"] = 0
@@ -344,7 +419,7 @@ class SushiGoParty:
         elif key == "dumpling":
             return [0, 1, 3, 6, 10, 15][min(val, 5)]
         elif key == "green tea ice cream":
-            return val / 4 * 12
+            return (val / 4) * 12
         elif key in ["fruit:o", "fruit:w", "fruit:p"]:
             return [-2, 0, 1, 3, 6, 10][min(val, 5)]
         return 0
@@ -396,11 +471,14 @@ if __name__ == "__main__":
     #for k,v in game.items():
      #   print k,v
     for i in range(game["count"]):
-        for j in range(game["cpp"]):
-            game["chosen"][1][i] = game["player_cards"][i]
+        game["chosen"][1][i] = game["player_cards"][i]
     game["turn"] = game["cpp"]
     for ch in game["chosen"][1]:
         print "Food:"
         print "\n".join(map(str,ch))
+
     sushi.update_score(game,{})
+    sushi.compute_dessert(game)
     print game["score"]
+    print game["total_desserts"]
+    print game["dessert_score"]

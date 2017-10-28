@@ -2,12 +2,23 @@ var rules = '每次选一个寿司然后回转然后计分！';
 
 var socks = null;
 
-var new_game = function(){
+var new_game = function(cards_type){
     if (!confirm("确定新建游戏？？")){
         return;
     }
     var count = parseInt($("#count").val());
-    var url = "./create?type=sushigoparty&count="+count;
+    var url = "./create?type=sushigoparty";
+    var args = {}
+    $(".newgame select").each(function(idx, elm){
+        args[$(elm).attr("id")] = elm.value;
+    })
+    if (cards_type){
+        args["cards_type"] = cards_type;
+    }
+    for (var k in args){
+        url += "&" + k + "=" + args[k];
+    }
+    console.log(args);
     console.log(url);
     window.location.href = url;
 }
@@ -16,8 +27,11 @@ var card_name = function(card){
     if (card.type == "Nigiri"){
         card_name = card.sub_name;
     }
-    if (card.name == "maki" || card.name == "uramaki"){
-        card_name = card.name + ":" + card.count;
+    if (card.name == "maki"){
+        card_name = card.name +":"+card.count;
+    }
+    if (card.name == "uramaki"){
+        card_name = card.name.substr(0,3) + ":" + card.count;
     }
     if (card.name == "fruit"){
         fruit_names = {"w":"W", "p":"P", "o":"O"}
@@ -78,6 +92,12 @@ var get_card_div = function(card, in_order){
     var name = card.name;
     if (card.sub_name){
         name = card.sub_name;
+    }
+    if (card.name == "onigiri"){
+        name = card.name + card.shape;
+    }
+    if (card.name == "uramaki" || card.name == "maki"){
+        name = card.name + card.count;
     }
     var div = $("<div></div>").addClass("card");
     div.attr("style","background: url('/static/sushigo/cards/"+name+".png');background-size: cover;");
@@ -171,8 +191,8 @@ var get_my_role = function(game, idx){
     if (game.dessert_score != undefined){
         score += game.dessert_score[idx];
     }
-    $(".player_info").append($("<div></div>").text("您的编号是"+idx+"号"));
     $(".player_info").html("");
+    $(".player_info").append($("<div></div>").text("您的编号是"+idx+"号"));
     $(".player_info").append($("<div></div>").attr("id","score").text("您的分数是"+score+"分"));
     show_history(game);
     if (game.status == "Finished"){
@@ -284,6 +304,13 @@ $(document).ready(function(){
             $("#count").append($("<option value='"+i+"'>"+i+"</option>"));
         }
         $("#count").val(game.count);
+        var default_types = ["random"];
+        for (var i in default_types){
+            $("#cards_type").append($("<option></option>").attr("value",default_types[i]).text(default_types[i]));
+        }
+        var my_type = game.cards_type.join("-");
+        $("#cards_type").append($("<option></option>").attr("value",my_type).text(my_type));
+        $("#cards_type").val(my_type);
         var h = document.body.clientWidth/30;
         $(".word").css("font-size",h);
         $(".word p").css("height",h);
