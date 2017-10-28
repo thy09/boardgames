@@ -20,7 +20,12 @@ ALL_TYPES = {
             "onigiri", "edamame",
             "miso soup",
             ],
-        "Special": ["soy sauce", "tea"],
+        "Special": [
+            "soy sauce",
+            "tea",
+       #     "wasabi",
+        #    "chopsticks",
+            ],
         "Dessert": [
             "pudding",
             "green tea ice cream",
@@ -99,7 +104,7 @@ class CardsGenerator:
 
     def gen_fruit(self, name):
         fruit = self.gen_normal_cards(name)
-        types = ["ww"]*2 + ["oo"]*2 + ["pp"]*2 + ["wo"]*3 + ["wp"]*3 + ["op"]*3
+        types = ["ww"]*2 + ["oo"]*2 + ["pp"]*2 + ["wo"]*3 + ["wp"]*3 + ["po"]*3
         for idx, card in enumerate(fruit):
             card["fruit"] = types[idx]
         return fruit

@@ -24,18 +24,24 @@ var new_game = function(cards_type){
 }
 var card_name = function(card){
     var card_name = card.name;
+    var names = {"egg nigiri":"鸡蛋手握", "salmon nigiri": "三文鱼手握", "squid nigiri":"鱿鱼手握",
+                "maki": "寿司卷", "uramaki": "里卷", "temaki": "手卷",
+                "dumpling": "煎饺", "edamame" : "青豆", "eel":"鳗鱼寿司", "onigiri":"饭团",
+                "miso soup": "味增汤", "sashimi": "刺身", "tempura": "天妇罗", "tofu":"豆腐",
+                "chopsticks":"筷子", "wasabi": "芥末", "soy sauce":"酱油", "tea": "茶",
+                "green tea ice cream": "抹茶冰淇淋", "pudding":"布丁"}
     if (card.type == "Nigiri"){
-        card_name = card.sub_name;
+        return names[card.sub_name];
     }
-    if (card.name == "maki"){
-        card_name = card.name +":"+card.count;
-    }
-    if (card.name == "uramaki"){
-        card_name = card.name.substr(0,3) + ":" + card.count;
+    if (card.name == "maki" || card.name== "uramaki"){
+        return names[card.name] +"*"+card.count;
     }
     if (card.name == "fruit"){
-        fruit_names = {"w":"W", "p":"P", "o":"O"}
-        card_name = card.name + ":" + fruit_names[card.fruit[0]] + " "+fruit_names[card.fruit[1]];
+        fruit_names = {"w":"西瓜", "p":"菠萝", "o":"橘子"}
+        return fruit_names[card.fruit[0]] + fruit_names[card.fruit[1]];
+    }
+    if (names[card_name]){
+        return names[card_name];
     }
     return card_name;
 }
@@ -44,7 +50,8 @@ var simple_name = function(card){
         return card.count;
     }   
     if (card.name == "fruit"){
-        return card.fruit;
+        fruit_names = {"w":"瓜", "p":"菠", "o":"橘"}
+        return fruit_names[card.fruit[0]] + fruit_names[card.fruit[1]];
     }
     return "-";
 }
@@ -98,6 +105,9 @@ var get_card_div = function(card, in_order){
     }
     if (card.name == "uramaki" || card.name == "maki"){
         name = card.name + card.count;
+    }
+    if (card.name == "fruit"){
+        name = card.name + card.fruit;
     }
     var div = $("<div></div>").addClass("card");
     div.attr("style","background: url('/static/sushigo/cards/"+name+".png');background-size: cover;");
