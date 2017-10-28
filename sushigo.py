@@ -61,7 +61,7 @@ class CardsGenerator:
     def gen_normal_cards(self, name):
         result = []
         for i in xrange(self.typecount[self.name2type[name]]):
-            result.append({"name":name, "id":i, "type":self.name2type[name]})
+            result.append({"name":name, "type":self.name2type[name]})
         return result
 
     def gen_nigiri(self, name):
@@ -71,27 +71,26 @@ class CardsGenerator:
         for subname, count_score in nigiries.items():
             count, score = count_score
             for i in range(count):
-                result.append({"type": "Nigiri", "name":name, "sub_name":"%s %s"%(subname, name), "score":score, "id":id})
+                result.append({"type": "Nigiri", "name":name, "sub_name":"%s %s"%(subname, name)})
                 id += 1
         return result
 
     def gen_maki(self, name):
         maki = self.gen_normal_cards(name)
-        for card in maki:
-            card["count"] = (card["id"]/4)+1
+        for idx, card in enumerate(maki):
+            card["count"] = (idx/4)+1
         return maki
 
     def gen_uramaki(self, name):
         maki = self.gen_normal_cards(name)
-        for card in maki:
-            card["count"] = (card["id"]/4)+3
+        for idx, card in enumerate(maki):
+            card["count"] = (idx/4)+3
         return maki
 
     def gen_fruit(self, name):
         fruit = self.gen_normal_cards(name)
         types = ["ww"]*2 + ["oo"]*2 + ["pp"]*2 + ["wo"]*3 + ["wp"]*3 + ["op"]*3
-        for card in fruit:
-            idx = card["id"]
+        for idx, card in enumerate(fruit):
             card["fruit"] = types[idx]
         return fruit
 
@@ -156,10 +155,10 @@ class SushiGoParty:
                 desserts = self.cards_generator.gen_cards(name)
             else:
                 foods += self.cards_generator.gen_cards(name)
-        for i, food in enumerate(foods):
-            food["id"] = i
-        for j, des in enumerate(desserts):
-            des["id"] = i+j
+        #for i, food in enumerate(foods):
+         #   food["id"] = i
+        #for j, des in enumerate(desserts):
+         #   des["id"] = i+j
         random.shuffle(foods)
         random.shuffle(desserts)
         return foods, desserts
@@ -364,6 +363,9 @@ class SushiGoParty:
         game["total_foods"][game["round"]] = []
         for player in range(game["count"]):
             player_foods = defaultdict(int)
+            for key in ["maki", "temaki"]:
+                if key in game["cards_type"]:
+                    player_foods[key] = 0
             for i in range(game["cpp"]):
                 card = chosen[player][i]
                 card_keys = self.card_keys(card)

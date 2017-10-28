@@ -60,7 +60,38 @@ p{
     float: left;
     width: 24%;
 }
+.my_order .food,
+.history .food,
+.orders .food{
+    width: 9%;
+    font-size: 5px;
+}
+.food p{
+    white-space: nowrap;
+    overflow: hidden;
+}
 .food img,
 .tile img{
     width: 90%;
+}
+.food.chosen{
+    float: none;
+    margin: 0 auto;
+}
+.clear{
+    clear: both;
+}
+.card{
+    width: 100%;
+    height: 0;
+    padding-bottom: 151.28%;
+}
+.my_order,
+.players,
+.orders,
+.history{
+    border-bottom: 3px solid #567;
+}
+select{
+    border: 1px solid;
 }
