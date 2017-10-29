@@ -23,18 +23,25 @@ def connect():
 @sockio.on("join", namespace="/sock")
 def join(msg):
     roomid = str(msg["id"])
+    uid = str(msg["uid"])
     join_room(roomid)
+    uid = "u%s" % uid
+    join_room(uid)
 
 @sockio.on("action", namespace = "/sock")
 def sockio_action(msg):
     args = msg["args"]
     id = args.get("id", 0)
+    uid = args["uid"]
     game = manager.game(id)
     if not game:
         return
     result = manager.do_action_sockio(game, args)
     if result is not None:
-        emit("action", {"data": result}, room = str(game["id"]))
+        if result.get("dest") == "me":
+            emit("action", {"data": result}, room = "u%s" % (uid))
+        else:
+            emit("action", {"data": result}, room = str(game["id"]))
 
 @app.before_request
 def before_request():
@@ -82,7 +89,7 @@ def status():
     game = manager.game_info(id)
     if not game:
         return jsonify({"status":"INVALID_ID"})
-    data = {"game":game, "status":"success"}
+    data = {"game":game, "status":"success", "uid":g.uid}
     if "occupied" in game:
         for idx, uid in enumerate(game["occupied"]):
             if uid == g.uid:

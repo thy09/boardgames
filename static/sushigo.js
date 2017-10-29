@@ -1,7 +1,32 @@
 var rules = '每次选一个寿司然后回转然后计分！';
 
 var socks = null;
-
+var names = {"egg nigiri":"鸡蛋手握", "salmon nigiri": "三文鱼手握", "squid nigiri":"鱿鱼手握",
+                "maki": "寿司卷", "uramaki": "里卷", "temaki": "手卷",
+                "dumpling": "煎饺", "edamame" : "青豆", "eel":"鳗鱼寿司", "onigiri":"饭团",
+                "miso soup": "味增汤", "sashimi": "刺身", "tempura": "天妇罗", "tofu":"豆腐",
+                "chopsticks":"筷子", "wasabi": "芥末", "soy sauce":"酱油", "tea": "茶",
+                "green tea ice cream": "抹茶冰淇淋", "pudding":"布丁",
+                "fruit:o":"橘子", "fruit:w":"西瓜","fruit:p":"菠萝"
+            }
+var check_wasabi = function(game, idx, args){
+    var chosen = game.chosen[game.round][game.my_idx];
+    console.log(chosen);
+    for (var i in chosen){
+        console.log(chosen[i]);
+        if (chosen[i].name == "wasabi" && (!(chosen[i].extra && chosen[i].extra.used))){
+            if (!confirm("是否使用芥末?")){
+                return true;
+            }
+            args["wasabi"] = i;
+            return true
+        }
+    }
+    return true;
+}
+var card_actions = {
+    "nigiri": check_wasabi,
+}
 var new_game = function(cards_type){
     if (!confirm("确定新建游戏？？")){
         return;
@@ -24,12 +49,6 @@ var new_game = function(cards_type){
 }
 var card_name = function(card){
     var card_name = card.name;
-    var names = {"egg nigiri":"鸡蛋手握", "salmon nigiri": "三文鱼手握", "squid nigiri":"鱿鱼手握",
-                "maki": "寿司卷", "uramaki": "里卷", "temaki": "手卷",
-                "dumpling": "煎饺", "edamame" : "青豆", "eel":"鳗鱼寿司", "onigiri":"饭团",
-                "miso soup": "味增汤", "sashimi": "刺身", "tempura": "天妇罗", "tofu":"豆腐",
-                "chopsticks":"筷子", "wasabi": "芥末", "soy sauce":"酱油", "tea": "茶",
-                "green tea ice cream": "抹茶冰淇淋", "pudding":"布丁"}
     if (card.type == "Nigiri"){
         return names[card.sub_name];
     }
@@ -41,7 +60,11 @@ var card_name = function(card){
         return fruit_names[card.fruit[0]] + fruit_names[card.fruit[1]];
     }
     if (names[card_name]){
-        return names[card_name];
+        card_name = names[card_name];
+    }
+    if (card.name == "onigiri"){
+        var shapes = ["三角", "长", "圆", "方"]
+        return card_name +":"+shapes[card.shape];
     }
     return card_name;
 }
@@ -53,7 +76,22 @@ var simple_name = function(card){
         fruit_names = {"w":"瓜", "p":"菠", "o":"橘"}
         return fruit_names[card.fruit[0]] + fruit_names[card.fruit[1]];
     }
+    console.log(card);
+    if (card.name == 'nigiri' && card.extra && card.extra.wasabi){
+        return "芥末";
+    }
     return "-";
+}
+var emit_action = function (game, type, args){
+    if (args == undefined){
+        args = {};
+    }
+    args["id"] = game.id;
+    args["uid"] = game.uid;
+    args["player"] = game.my_idx;
+    args["type"] = type;
+    console.log(args);
+    sock.emit("action",{"args": args});
 }
 var show_foods = function(game, idx){
     $(".players .foods").remove();
@@ -64,23 +102,28 @@ var show_foods = function(game, idx){
     for (var i in game.player_cards[idx]){
         var card = game.player_cards[idx][i];
         var card_div = get_card_div(card);
-        (function(idx, div){
+        (function(idx, div, card){
             div.click(function(){
                 if (!confirm("确定选择 "+div.attr("name")+" 吗?")){
                     return;
                 }
-                var data = {
-                    "type": "choose_card",
-                    "player":game.my_idx,
-                    "card_idx": idx,
-                    "id": game.id};
-                sock.emit("action", {"args": data});
+                var args = {"card_idx": idx, "turn": game["turn"]};
+                console.log(card.name);
+                if (card_actions[card.name]){
+                    var func = card_actions[card.name];
+                    console.log(func);
+                    var ok = func(game, idx, args);
+                    if (!ok){
+                        return;
+                    }
+                }
+                emit_action(game, "choose_card", args);
                 cards.append($("#choice .food").removeClass("chosen"));
                 cards.append($(".foods .clear"))
                 $("#choice").append(div.addClass("chosen"));
             })
-        })(i, card_div);
-        if (game.chosen[game.round][idx].length > game.turn && game.chosen[game.round][idx][game.turn] == i){
+        })(i, card_div, card);
+        if (game.chosen[game.round][idx].length > game.turn && game.chosen[game.round][idx][game.turn].idx == i){
             card_div.addClass("chosen");
         }
         divs.push(card_div);
@@ -121,10 +164,11 @@ var get_card_div = function(card, in_order){
 }
 var get_cards_div = function(cards, in_order){
     var div = $("<div></div>");
-    for (var i in cards){
-        if (typeof cards[i] === 'number'){
-            continue;
-        }
+    var turn = game.turn;
+    if (cards.length == game.cpp){
+        turn = game.cpp;
+    }
+    for (var i =0;i<turn;i++){
         div.append(get_card_div(cards[i], in_order));
     }
     div.append($("<div></div>").addClass("clear"));
@@ -135,7 +179,6 @@ var show_my_order = function(game, idx){
 }
 var dessert_desc = function(desserts){
     var result = [];
-    names = {"fruit:o":"Org", "fruit:w":"Wml","fruit:p":"Pine"}
     for (k in desserts){
         var count = desserts[k];
         if (count == 0){
@@ -186,7 +229,10 @@ var show_history = function(game){
         }
         $(".history").append($("<p></p>").text("玩家"+i+"的得分:"+history.join(",")+",总共"+total));
         for (var j=1;j<game.round;j++){
-            $(".history").append(get_cards_div(game.chosen[j][i], true));
+            console.log(game.chosen[j][i]);
+            var div = get_cards_div(game.chosen[j][i],true);
+            $(".history").append(div);
+            console.log(div);
         }
     }
 }
@@ -212,11 +258,7 @@ var get_my_role = function(game, idx){
     if (game.player_cards[idx].length == 0){
         var div = $("<div></div>").addClass("btn action compute").text("开始计算分数");
         div.click(function(){
-            var data = {
-                "type": "update_score",
-                "id": game.id,
-            }
-            sock.emit("action", {"args":data});
+            emit_action(game, "update_score", {});
         });
         $(".players").append(div);
     }else{
@@ -268,12 +310,23 @@ var game = null;
 var all_chosen = function(result){
     var hint = "";
     for (var i in result){
-        hint += "\n玩家"+i+"选择了"+card_name(game.player_cards[i][result[i]]);
-        game.chosen[game.round][i].push(game.player_cards[i][result[i]]);
-        game.player_cards[i] = game.player_cards[i].slice(0, result[i]).concat(game.player_cards[i].slice(result[i]+1));
+        hint += "\n玩家"+i+"选择了"+card_name(result[i]);
+        var idx = result[i].idx;
+        var chosen = game.chosen[game.round][i];
+        if (result[i].name == "nigiri" && result[i].extra && result[i].extra.wasabi){
+            for (var j in chosen){
+                if (chosen[i].name == "wasabi" && !(chosen[i].extra && chosen[i].extra.used)){
+                    chosen[i].extra = {"used":true};
+                    break;
+                }
+            }
+        }
+        chosen.push(result[i]);
+        game.player_cards[i] = game.player_cards[i].slice(0, idx).concat(game.player_cards[i].slice(idx+1));
     }
     alert(hint);
     game.player_cards.push(game.player_cards.shift());
+    game["turn"] += 1;
     get_my_role(game, game.my_idx);
 }
 var do_actions = function(msg){
@@ -283,6 +336,12 @@ var do_actions = function(msg){
     }
     if (msg.data.type == "score"){
         window.location.reload();
+    }
+    if (msg.data.type == "notify"){
+        alert(msg.data.text);
+        if (msg.data.text == "INVALID_TURN"){
+            window.location.reload();
+        }
     }
 }
 var update_tiles = function(tiles){
@@ -299,9 +358,10 @@ $(document).ready(function(){
     $.get("/status"+location.search,"",function(data){
         game = data.game;
         game.my_idx = data.my_idx;
+        game.uid = data.uid;
         console.log(data);
         update_tiles(game.cards_type);
-        sock.emit("join",{"id":game.id});
+        sock.emit("join",{"id":game.id, "uid": game.uid});
         sock.on("action", do_actions);
         $("title").text("寿司狗:"+game.id);
         if (data.my_idx === undefined){

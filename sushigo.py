@@ -23,8 +23,8 @@ ALL_TYPES = {
         "Special": [
             "soy sauce",
             "tea",
-       #     "wasabi",
-        #    "chopsticks",
+            "wasabi",
+         #   "chopsticks",
             ],
         "Dessert": [
             "pudding",
@@ -126,6 +126,10 @@ class SushiGoParty:
                 "maki": self.score_maki,
                 }
         self.cards_types = {}
+        self.choose_actions = {"nigiri": self.choose_nigiri,
+                }
+        self.chosen_actions = {"nigiri": self.chosen_nigiri,
+                }
 
     def create(self, args):
         game = {"type": "SushiGoParty", "tpl":"sushigo.html"}
@@ -192,7 +196,6 @@ class SushiGoParty:
         elif cards_type in self.cards_types:
             cards_type = self.cards_types
         types = cards_type.split("-")
-        print types, len(types)
         if len(types) != 8:
             return self.parse_cards_type("random")
         return types
@@ -219,26 +222,47 @@ class SushiGoParty:
         cur = game["chosen"][game["round"]]
         cards = game["player_cards"]
         for i in range(game["count"]):
-            idx = cur[i][game["turn"]]
-            cur[i][game["turn"]] = cards[i][idx]
+            card = cur[i][game["turn"]]
+            idx = card["idx"]
             cards[i] = cards[i][:idx] + cards[i][idx+1:]
+            if self.chosen_actions.has_key(card["name"]):
+                self.chosen_actions[card["name"]](cur[i], card)
         game["player_cards"] = game["player_cards"][1:] + game["player_cards"][:1]
         game["turn"] += 1
         return
 
+    def chosen_nigiri(self, chosen, card):
+        if card.get("extra",{}).get("wasabi"):
+            for ch in chosen:
+                if ch["name"] == "wasabi":
+                    if not ch.get("extra",{}).get("used"):
+                        ch["extra"] = {"used": True}
+                        return
+
+    def choose_nigiri(self, game, card, args, player):
+        if "wasabi" in args:
+            card["extra"] = {"wasabi": True}
     def choose_card(self, game, args):
         player = int(args["player"])
         idx = int(args["card_idx"])
         chosen = game["chosen"][game["round"]][player]
+        player_turn = int(args["turn"])
+        if (player_turn != game["turn"]):
+            return {"dest":"me", "type":"notify", "text":"INVALID_TURN"}
+        card = copy.deepcopy(game["player_cards"][player][idx])
+        card["idx"] = idx
+        if self.choose_actions.get(card["name"]):
+            self.choose_actions[card["name"]](game, card, args, player)
         if len(chosen) != game["turn"]:
-            chosen[game["turn"]] = idx
+            chosen[game["turn"]] = card
         else:
-            chosen.append(idx)
+            chosen.append(card)
         game["chosen"][game["round"]][player] = chosen
         if self.all_chosen(game):
             result = self.chosen_result(game)
             self.update_food(game)
             return {"type":"all_chosen", "result": result}
+        return {"type":"notify", "dest": "me", "text":"Success!"}
 
     def update_score(self, game, args):
         if game["turn"] != game["cpp"]:
@@ -399,7 +423,11 @@ class SushiGoParty:
         for player in range(game["count"]):
             for card in chosen[player]:
                 if card["type"] != "Dessert":
-                    cards.append(card)
+                    new_card  = copy.deepcopy(card)
+                    if "extra" in new_card:
+                        new_card.pop("extra")
+                    new_card.pop("idx")
+                    cards.append(new_card)
         random.shuffle(cards)
         for i in range(game["count"]):
             game["player_cards"][i] = cards[i*game["cpp"]:(i+1)*game["cpp"]]
@@ -409,10 +437,16 @@ class SushiGoParty:
     def compute_score(self, key, val):
         if key in ["squid nigiri", "miso soup"]:
             return val*3
+        elif key == "squid nigiri:w":
+            return val*9
         elif key == "salmon nigiri":
             return val*2
+        elif key == "salmon nigiri:w":
+            return val*6
         elif key == "egg nigiri":
             return val
+        elif key == "egg nigiri:w":
+            return val*3
         elif key == "eel":
             return [0, -3, 7][min(val, 2)]
         elif key == "tofu":
@@ -431,6 +465,8 @@ class SushiGoParty:
 
     def card_keys(self, food):
         if food["name"] == "nigiri":
+            if food.get("extra",{}).get("wasabi"):
+                return ["%s:w" % food["sub_name"]]
             return [food["sub_name"]]
         if food["name"] in ["maki", "uramaki"]:
             return food["count"] * [food["name"]]
