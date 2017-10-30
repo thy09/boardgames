@@ -133,6 +133,8 @@ select{
     top: 50%;
     width: 90%;
 }
+#popout.content .popout-ctn,
+#popout.content .pop-content,
 #popout.loading .popout-ctn,
 #popout.loading .pop-loading {
   display: block;

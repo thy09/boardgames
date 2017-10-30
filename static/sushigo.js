@@ -1,6 +1,16 @@
 var rules = '每次选一个寿司然后回转然后计分！';
 
 var socks = null;
+var game = null;
+var copy_food = function(food){
+    var result = {};
+    for (var k in food){
+        if (k != "extra"){
+            result[k] = food[k];
+        }
+    }
+    return result;
+}
 var names = {"egg nigiri":"鸡蛋手握", "salmon nigiri": "三文鱼手握", "squid nigiri":"鱿鱼手握",
                 "maki": "寿司卷", "uramaki": "里卷", "temaki": "手卷",
                 "dumpling": "煎饺", "edamame" : "青豆", "eel":"鳗鱼寿司", "onigiri":"饭团",
@@ -92,6 +102,7 @@ var emit_action = function (game, type, args){
     }
     args["id"] = game.id;
     args["uid"] = game.uid;
+    args["turn"] = game.turn;
     args["player"] = game.my_idx;
     args["type"] = type;
     console.log(args);
@@ -168,6 +179,24 @@ var get_card_div = function(card, in_order){
     card_div.append($("<p></p>").text(name));
     return card_div;
 }
+var get_foods_div = function(foods, click_func){
+    var cards = $("<div></div>").addClass();
+    var divs = []
+    for (var i in foods){
+        var food = foods[i];
+        var card_div = get_card_div(food);
+        (function(i, div, food){
+            div.click(click_func(food));
+        })(i, card_div, food);
+        divs.push(card_div);
+    }
+    divs.sort(function(v1,v2){return v1.attr("name") < v2.attr("name");});
+    for (var i in divs){
+        cards.append(divs[i]);
+    }
+    cards.append($("<div class='clear'></div>"));
+    return cards;
+}
 var get_cards_div = function(cards, in_order){
     var div = $("<div></div>");
     var turn = game.turn;
@@ -235,12 +264,42 @@ var show_history = function(game){
         }
         $(".history").append($("<p></p>").text("玩家"+i+"的得分:"+history.join(",")+",总共"+total));
         for (var j=1;j<game.round;j++){
-            console.log(game.chosen[j][i]);
             var div = get_cards_div(game.chosen[j][i],true);
             $(".history").append(div);
-            console.log(div);
         }
     }
+}
+var use_chopsticks = function(){
+    $(".pop-content .title").text("选择要夹的食物");
+    var copied = [];
+    for (var i in game.player_cards[game.my_idx]){
+        var food = copy_food(game.player_cards[game.my_idx][i]);
+        food["ori_idx"] = i;
+        copied.push(food);
+    }
+    $(".pop-content .detail").html(get_foods_div(copied, function(food){
+        var func = function(){
+            console.log(food);
+            if (confirm("确定夹走" + card_name(food)+"?")){
+                emit_action(game, "chopsticks", {"idx": food.ori_idx});
+            }
+        }
+        return func;
+    }));
+    $(".pop-content .detail").append($("<div class='btn'>取消</div>").click(function(){
+        $(".pop-content .detail").html("");
+        $("#popout").removeClass("content").addClass("hidden");
+    }));
+    $("#popout").removeClass("hidden").addClass("content");
+    //
+}
+var chopsticks_id = function(game, idx){
+    for (var i=0;i<game.turn;i++){
+        if (game["chosen"][game.round][idx][i].name == "chopsticks"){
+            return i;
+        }
+    }
+    return -1;
 }
 var get_my_role = function(game, idx){
     var players = game.players;
@@ -268,6 +327,9 @@ var get_my_role = function(game, idx){
         });
         $(".players").append(div);
     }else{
+        if (chopsticks_id(game, game.my_idx) >= 0){
+            $(".players").append($("<div class='btn action'>使用筷子</div>").click(use_chopsticks));
+        }
         show_foods(game, idx);
     }
     show_my_order(game, idx);
@@ -312,8 +374,8 @@ var add_players = function(game){
         });
     });
 }
-var game = null;
 var all_chosen = function(result){
+    var turn = game["turn"];
     var hint = "";
     for (var i in result){
         hint += "\n玩家"+i+"选择了"+card_name(result[i]);
@@ -327,7 +389,7 @@ var all_chosen = function(result){
                 }
             }
         }
-        chosen.push(result[i]);
+        chosen[turn] = result[i];
         game.player_cards[i] = game.player_cards[i].slice(0, idx).concat(game.player_cards[i].slice(idx+1));
     }
     alert(hint);
@@ -335,9 +397,22 @@ var all_chosen = function(result){
     game["turn"] += 1;
     get_my_role(game, game.my_idx);
 }
+var used_chopsticks = function(data){
+    var player = data.player;
+    var chop_id = chopsticks_id(game, player);
+    var idx = data.idx;
+    var temp = game.player_cards[player][idx];
+    game.player_cards[player][idx] = game.chosen[game.round][player][chop_id];
+    game.chosen[game.round][player][chop_id] = temp;
+    alert("玩家"+player + "使用筷子夹了" + card_name(temp));
+    get_my_role(game, game.my_idx);
+}
 var do_actions = function(msg){
-    $("#popout").removeClass("loading").addClass("hidden");
+    $("#popout").removeClass("loading").removeClass("content").addClass("hidden");
     clearTimeout(emit_timer);
+    if (msg.data.type == "chopsticks"){
+        used_chopsticks(msg.data);
+    }
     if (msg.data.type == "all_chosen"){
         all_chosen(msg.data.result);
     }

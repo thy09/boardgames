@@ -24,7 +24,7 @@ ALL_TYPES = {
             "soy sauce",
             "tea",
             "wasabi",
-         #   "chopsticks",
+            "chopsticks",
             ],
         "Dessert": [
             "pudding",
@@ -116,6 +116,7 @@ class SushiGoParty:
         self.cards_generator = CardsGenerator()
         self.actions = {"choose_card": self.choose_card,
                 "update_score": self.update_score,
+                "chopsticks": self.chopsticks,
                 }
         self.score_funcs = {"tea":self.score_tea,
                 "soy sauce": self.score_soysauce,
@@ -263,6 +264,24 @@ class SushiGoParty:
             self.update_food(game)
             return {"type":"all_chosen", "result": result}
         return {"type":"notify", "dest": "me", "text":"Success!"}
+    def chopsticks(self, game, args):
+        player = int(args["player"])
+        turn = int(args["turn"])
+        if (turn != game["turn"]):
+            return {"dest":"me", "type": "notify", "text": "INVALID_TURN"}
+        chosen = game["chosen"][game["round"]][player]
+        chops_id = -1
+        for i in range(turn):
+            if chosen[i]["name"] == "chopsticks":
+                chops_id = i
+                break
+        if chops_id == -1:
+            return {"dest":"me", "type": "notify", "text": "NO_CHOPSTICKS"}
+        idx = int(args["idx"])
+        temp = game["player_cards"][player][idx]
+        game["player_cards"][player][idx] = chosen[chops_id]
+        chosen[chops_id] = temp
+        return {"type":"chopsticks", "player":player, "idx": idx}
 
     def update_score(self, game, args):
         if game["turn"] != game["cpp"]:
@@ -426,7 +445,10 @@ class SushiGoParty:
                     new_card  = copy.deepcopy(card)
                     if "extra" in new_card:
                         new_card.pop("extra")
-                    new_card.pop("idx")
+                    if "idx" in new_card:
+                        new_card.pop("idx")
+                    if "ori_idx" in new_card:
+                        new_card.pop("ori_idx")
                     cards.append(new_card)
         random.shuffle(cards)
         for i in range(game["count"]):
