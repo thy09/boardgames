@@ -50,7 +50,11 @@ var new_game = function(cards_type){
 var card_name = function(card){
     var card_name = card.name;
     if (card.type == "Nigiri"){
-        return names[card.sub_name];
+        card_name = names[card.sub_name];
+        if (card.extra && card.extra.wasabi){
+            card_name += "蘸芥末";
+        }
+        return card_name;
     }
     if (card.name == "maki" || card.name== "uramaki"){
         return names[card.name] +"*"+card.count;
@@ -76,12 +80,12 @@ var simple_name = function(card){
         fruit_names = {"w":"瓜", "p":"菠", "o":"橘"}
         return fruit_names[card.fruit[0]] + fruit_names[card.fruit[1]];
     }
-    console.log(card);
     if (card.name == 'nigiri' && card.extra && card.extra.wasabi){
         return "芥末";
     }
     return "-";
 }
+var emit_timer = null;
 var emit_action = function (game, type, args){
     if (args == undefined){
         args = {};
@@ -91,6 +95,8 @@ var emit_action = function (game, type, args){
     args["player"] = game.my_idx;
     args["type"] = type;
     console.log(args);
+    $("#popout").removeClass("hidden").addClass("loading");
+    emit_timer = setTimeout(function(){window.location.reload();},3000);
     sock.emit("action",{"args": args});
 }
 var show_foods = function(game, idx){
@@ -315,8 +321,8 @@ var all_chosen = function(result){
         var chosen = game.chosen[game.round][i];
         if (result[i].name == "nigiri" && result[i].extra && result[i].extra.wasabi){
             for (var j in chosen){
-                if (chosen[i].name == "wasabi" && !(chosen[i].extra && chosen[i].extra.used)){
-                    chosen[i].extra = {"used":true};
+                if (chosen[j].name == "wasabi" && !(chosen[j].extra && chosen[j].extra.used)){
+                    chosen[j].extra = {"used":true};
                     break;
                 }
             }
@@ -330,7 +336,8 @@ var all_chosen = function(result){
     get_my_role(game, game.my_idx);
 }
 var do_actions = function(msg){
-    console.log(msg);
+    $("#popout").removeClass("loading").addClass("hidden");
+    clearTimeout(emit_timer);
     if (msg.data.type == "all_chosen"){
         all_chosen(msg.data.result);
     }

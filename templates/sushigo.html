@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1">
 <title>Sushigo</title>
-<link rel="stylesheet" href="./static/game.css?v=20171028v1"></link>
+<link rel="stylesheet" href="./static/game.css?v=20171030v0"></link>
 </head>
 <body>
     <div style="display:none"><img src='./static/sushigo_logo.jpg'></img></div>
@@ -27,9 +27,18 @@
     <div class="hint"></div>
     <div class="discussion"></div>
     <div class="rules"></div>
+    <div id="popout" class="hidden">
+      <div class="popout-box">
+          <div class="popout-ctn">
+            <div class="pop-loading">
+                <div class="text">请求提交中....</div>
+            </div>
+          </div>
+      </div>
+    </div>
 </body>
 <script src="./static/zepto.js"></script>
 <script src="./static/base.js"></script> 
 <script type="text/javascript" src="./static/socket.io.min.js"></script>
-<script src="./static/sushigo.js?v=20171029v0"></script>
+<script src="./static/sushigo.js?v=20171030v0"></script>
 </html>
