@@ -35,6 +35,9 @@ var new_game = function(){
     console.log(url);
     window.location.href = url;
 }
+var load_game = function(){
+    window.location.href = "/play?id=" + $("#roomid").val();
+}
 var get_my_role = function(game, idx){
     var players = game.players;
     var div = $("<div class='p'></div>").text("编号"+idx+"的身份是:" + names[game.players[idx]]);     
