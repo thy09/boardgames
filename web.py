@@ -50,7 +50,7 @@ def play():
     id = request.args.get("id", 0)
     game = manager.game(id)
     if game is None:
-        return "Error, game %d not exist!" % (id)
+        return "Error, game %s not exist!" % (id)
     return render_template(game["tpl"], game = game)
 
 @app.route("/status")

@@ -5,6 +5,8 @@
 
 import datetime
 import random
+import redis
+import json
 
 import werewords
 
@@ -15,30 +17,29 @@ ALL_GAMES = {
 
 class GameManager:
     def __init__(self):
-        self.games = {}
+        self.r = redis.StrictRedis()
+        try:
+            self.r.ping()
+        except:
+            self.r = redis.StrictRedis(host="redis")
         self.generators = {}
-        self.users = {}
 
     def new_user(self):
         upper = 99999999
         lower = 10000000
         uid = str(random.randint(lower, upper))
-        while uid in self.users:
+        while self.r.exists("user"+uid):
             uid = str(random.randint(lower, upper))
+        self.r.setex("user"+uid, 3600*24, "{}")
         return uid
 
-    def update_user(self, uid):
-        expire_time = 1200
-        self.users[uid] = datetime.datetime.now() + datetime.timedelta(seconds = expire_time)
+    def exist_user(self,uid):
+        if uid is None:
+            return None
+        return self.r.exists("user" + uid)
 
-    def exist_user(self, uid):
-        if not uid in self.users:
-            return False
-        expire = self.users.get(uid)
-        if expire <= datetime.datetime.now():
-            self.users.pop(uid)
-            return False
-        return True
+    def update_user(self, uid):
+        self.r.expire("user"+uid, 3600*24)
 
     def user_sit(self, id, idx, userid):
         game = self.game(id)
@@ -46,21 +47,31 @@ class GameManager:
             return False
         idx = int(idx)
         cur = game["occupied"][idx]
-        if cur is not None and self.exist_user(cur):
+        if cur is not None:
             return False
         game["occupied"][idx] = userid
+        self.save_game(id, game)
         return True
 
     def new_game_id(self):
         upper = 1000000
         lower = 1000
-        id = random.randint(lower, upper)
-        while str(id) in self.games:
-            id = random.randint(lower, upper)
-        return id
+        gid = str(random.randint(lower, upper))
+        while self.r.exists("game"+gid):
+            gid = str(random.randint(lower, upper))
+        return gid
 
-    def game(self, id):
-        return self.games.get(str(id))
+    def save_game(self, gid, game):
+        data = json.dumps(game)
+        self.r.set("game" + gid, data)
+
+    def game(self, gid):
+        data = self.r.get("game%s" % (gid))
+        try:
+            return json.loads(data.decode())
+        except Exception as e:
+            print(e)
+            return None
 
     def create(self, game_type, args):
         if not game_type in self.generators:
@@ -71,12 +82,14 @@ class GameManager:
         if "count" in game:
             game["occupied"] = [None] * game["count"]
         game["id"] = self.new_game_id()
-        self.games[str(game["id"])] = game
+        self.save_game(game["id"], game)
         return game["id"]
 
     def do_action(self, game, data):
         game_class = self.generators[game["type"].lower()]
-        return game_class.do_action(game, data)
+        resp = game_class.do_action(game, data)
+        self.save_game(game["id"], game)
+        return resp
 
     def print_game(self, id):
         game = self.game(id)
