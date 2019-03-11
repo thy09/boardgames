@@ -16,26 +16,81 @@ var names = {"egg nigiri":"鸡蛋手握", "salmon nigiri": "三文鱼手握", "s
                 "dumpling": "煎饺", "edamame" : "青豆", "eel":"鳗鱼寿司", "onigiri":"饭团",
                 "miso soup": "味增汤", "sashimi": "刺身", "tempura": "天妇罗", "tofu":"豆腐",
                 "chopsticks":"筷子", "wasabi": "芥末", "soy sauce":"酱油", "tea": "茶",
+                "takeout box":"打包盒",
                 "green tea ice cream": "抹茶冰淇淋", "pudding":"布丁",
                 "fruit:o":"橘子", "fruit:w":"西瓜","fruit:p":"菠萝"
             }
-var check_wasabi = function(game, idx, args){
+var check_wasabi = function(game, idx, args, cards, div){
     var chosen = game.chosen[game.round][game.my_idx];
     console.log(chosen);
     for (var i in chosen){
         console.log(chosen[i]);
-        if (chosen[i].name == "wasabi" && (!(chosen[i].extra && chosen[i].extra.used))){
+        if (chosen[i].name == "wasabi" && !chosen[i].taken && (!(chosen[i].extra && chosen[i].extra.used))){
             if (!confirm("是否使用芥末?")){
+                choose_card(game, args, cards, div);
                 return true;
             }
             args["wasabi"] = i;
-            return true
+            break;
         }
     }
+    choose_card(game, args, cards, div);
     return true;
+}
+var takeout_food = function(game, idx, args, cards, div){
+    var copied = [];
+    for (var i=0;i<game.turn;i++){
+        var food = game.chosen[game.round][game.my_idx][i];
+        if (food.taken || food.name == "takeout box" || (food.name == "wasabi" && food.extra && food.extra.used)){
+            continue;
+        }
+        var food = copy_food(food);
+        food["ori_idx"] = i;
+        copied.push(food);
+    }
+    $(".pop-content .title").text("选择要带走的食物");   
+    $(".pop-content .detail").html("");
+    $(".pop-content .detail").append($("<div><p>要带走的食物</p><div id='taken'></div><div class='clear'></div></div>"));
+    $(".pop-content .detail").append($("<p>可选择的食物</p>"));
+    var foods_div = get_foods_div(copied, function(food){
+        var func = function(event){
+            elm = $(".detail").find(".f"+food.ori_idx);
+            console.log(elm);
+            console.log(event);
+            $(elm).attr("food_idx", food.ori_idx);
+            if ($(elm).attr("chosen") == "yes"){
+                $(elm).attr("chosen","no");
+                $("#to_take").append($(elm));
+                $("#to_take").append($("#to_take .clear"));
+            }else{
+                $(elm).attr("chosen","yes");
+                $("#taken").append($(elm));
+            }
+        }
+        return func;
+    });
+    foods_div.attr("id", "to_take");
+    var new_args = {}
+    for (var k in args){
+        new_args[k] = args[k];
+    }
+    $(".pop-content .detail").append(foods_div);
+    $(".pop-content .detail").append($("<div class='btn'>确定</div>").click(function(){
+        var food_list = [];
+        $("#taken .food").each(function(idx, elm){
+            food_idx = parseInt($(elm).attr("food_idx"));
+            food_list.push(food_idx);
+        })
+        new_args["taken"] = food_list;
+        console.log(new_args);
+        choose_card(game, new_args, cards, div);
+    }));
+    $("#popout").removeClass("hidden").addClass("content");
+    return false;
 }
 var card_actions = {
     "nigiri": check_wasabi,
+    "takeout box": takeout_food,
 }
 var new_game = function(cards_type){
     if (!confirm("确定新建游戏？？")){
@@ -83,6 +138,12 @@ var card_name = function(card){
     return card_name;
 }
 var simple_name = function(card){
+    if (card.taken){
+        return "打包";
+    }
+    if (card.name == "wasabi" && card.extra && card.extra.used){
+        return "用完";
+    }
     if (card.name == "maki" || card.name == "uramaki"){
         return card.count;
     }   
@@ -110,6 +171,12 @@ var emit_action = function (game, type, args){
     emit_timer = setTimeout(function(){window.location.reload();},3000);
     sock.emit("action",{"args": args});
 }
+var choose_card = function(game, args, cards, div){
+    emit_action(game, "choose_card", args);
+    cards.append($("#choice .food").removeClass("chosen"));
+    cards.append($(".foods .clear"))
+    $("#choice").append(div.addClass("chosen"));
+}
 var show_foods = function(game, idx){
     $(".players .foods").remove();
     $(".players .play").remove();
@@ -128,16 +195,11 @@ var show_foods = function(game, idx){
                 console.log(card.name);
                 if (card_actions[card.name]){
                     var func = card_actions[card.name];
-                    console.log(func);
-                    var ok = func(game, idx, args);
-                    if (!ok){
-                        return;
-                    }
+                    func(game, idx, args, cards, div);
                 }
-                emit_action(game, "choose_card", args);
-                cards.append($("#choice .food").removeClass("chosen"));
-                cards.append($(".foods .clear"))
-                $("#choice").append(div.addClass("chosen"));
+                else{
+                    choose_card(game, args, cards, div);
+                }
             })
         })(i, card_div, card);
         if (game.chosen[game.round][idx].length > game.turn && game.chosen[game.round][idx][game.turn].idx == i){
@@ -188,6 +250,7 @@ var get_foods_div = function(foods, click_func){
         (function(i, div, food){
             div.click(click_func(food));
         })(i, card_div, food);
+        card_div.addClass("f"+food.ori_idx);
         divs.push(card_div);
     }
     divs.sort(function(v1,v2){return v1.attr("name") < v2.attr("name");});
@@ -291,7 +354,6 @@ var use_chopsticks = function(){
         $("#popout").removeClass("content").addClass("hidden");
     }));
     $("#popout").removeClass("hidden").addClass("content");
-    //
 }
 var chopsticks_id = function(game, idx){
     for (var i=0;i<game.turn;i++){
@@ -387,6 +449,11 @@ var all_chosen = function(result){
                     chosen[j].extra = {"used":true};
                     break;
                 }
+            }
+        }
+        if (result[i].name == "takeout box" && result[i].extra && result[i].extra.taken){
+            for (var j in result[i].extra.taken){
+                chosen[result[i].extra.taken[j]].taken = true;
             }
         }
         chosen[turn] = result[i];

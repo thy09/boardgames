@@ -21,10 +21,11 @@ ALL_TYPES = {
             "miso soup",
             ],
         "Special": [
-            "soy sauce",
-            "tea",
+           # "soy sauce",
+           # "tea",
             "wasabi",
-            "chopsticks",
+           # "chopsticks",
+            "takeout box",
             ],
         "Dessert": [
             "pudding",
@@ -128,8 +129,10 @@ class SushiGoParty:
                 }
         self.cards_types = {}
         self.choose_actions = {"nigiri": self.choose_nigiri,
+                "takeout box": self.choose_takeout,
                 }
         self.chosen_actions = {"nigiri": self.chosen_nigiri,
+                "takeout box": self.chosen_takeout,
                 }
 
     def create(self, args):
@@ -236,13 +239,24 @@ class SushiGoParty:
         if card.get("extra",{}).get("wasabi"):
             for ch in chosen:
                 if ch["name"] == "wasabi":
-                    if not ch.get("extra",{}).get("used"):
+                    if not ch.get("taken") and not ch.get("extra",{}).get("used"):
                         ch["extra"] = {"used": True}
                         return
 
     def choose_nigiri(self, game, card, args, player):
         if "wasabi" in args:
             card["extra"] = {"wasabi": True}
+
+    def chosen_takeout(self, chosen, card):
+        for idx in card["extra"]["taken"]:
+            food = chosen[idx]
+            if food["name"] == "wasabi" and food.get("extra",{}).get("used"):
+                continue
+            food["taken"] = True
+    
+    def choose_takeout(self, game, card, args, player):
+        card["extra"] = {"taken":args.get("taken",{})}
+
     def choose_card(self, game, args):
         player = int(args["player"])
         idx = int(args["card_idx"])
@@ -441,15 +455,21 @@ class SushiGoParty:
         game["rest_desserts"] = game["rest_desserts"][to_choose[game_round]:]
         for player in range(game["count"]):
             for card in chosen[player]:
-                if card["type"] != "Dessert":
+                if card["type"] != "Dessert" or card.get("taken"):
                     new_card  = copy.deepcopy(card)
+                    if "ori_name" in new_card:
+                        print new_card,
+                        new_card["name"] = new_card["ori_name"]
                     if "extra" in new_card:
                         new_card.pop("extra")
                     if "idx" in new_card:
                         new_card.pop("idx")
                     if "ori_idx" in new_card:
                         new_card.pop("ori_idx")
+                    if "taken" in new_card:
+                        new_card.pop("taken")
                     cards.append(new_card)
+                    print new_card
         random.shuffle(cards)
         for i in range(game["count"]):
             game["player_cards"][i] = cards[i*game["cpp"]:(i+1)*game["cpp"]]
@@ -486,6 +506,10 @@ class SushiGoParty:
         return 0
 
     def card_keys(self, food):
+        if food.get("taken"):
+            food["ori_name"] = food["name"]
+            food["name"] = "taken"
+            return ["taken"]
         if food["name"] == "nigiri":
             if food.get("extra",{}).get("wasabi"):
                 return ["%s:w" % food["sub_name"]]
@@ -507,11 +531,11 @@ class SushiGoParty:
             for i in range(game["cpp"]):
                 card = chosen[player][i]
                 card_keys = self.card_keys(card)
-                if card["name"] == "miso soup":
+                if card["name"] == "miso soup" and not card.get("taken"):
                     for j in range(game["count"]):
                         if chosen[j][i]["name"] == card["name"] and j != player:
                             card_keys = ["miso soup:discarded"]
-                if card["type"] != "Dessert":
+                if card["type"] != "Dessert" or card.get("taken"):
                     for card_key in card_keys:
                         player_foods[card_key] += 1
                 else:
