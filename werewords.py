@@ -35,7 +35,7 @@ class WereWords:
         return random.sample(words, candidates)
 
     def load_words(self, name):
-        fname = "%s.words" % name
+        fname = "./res/%s.words" % name
         if os.path.exists(fname):
             words = set()
             for line in codecs.open(fname, encoding = "utf-8"):

@@ -81,13 +81,13 @@ class GameManager:
     def print_game(self, id):
         game = self.game(id)
         if not game:
-            print "%s is invalid!" % id
+            print("%s is invalid!" % id)
             return
         for k,v in game.items():
             if isinstance(v,list):
                 v = ",".join(map(unicode,v))
-            print k, v
-        print ""
+            print(k,v)
+        print("")
 
 if __name__ == "__main__":
     manager = GameManager()
